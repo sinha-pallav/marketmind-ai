@@ -1,0 +1,44 @@
+# ============================================================
+# Fly.io deployment config for MarketMind AI (FastAPI backend)
+#
+# WHAT IS FLY.IO?
+#   A platform that runs Docker containers close to users globally.
+#   Free tier: 3 shared VMs, 3GB storage, 160GB outbound bandwidth/month.
+#   No credit card required for the free tier.
+#
+# HOW TO DEPLOY:
+#   1. Install flyctl: https://fly.io/docs/hands-on/install-flyctl/
+#      winget install -e --id Fly.flyctl
+#   2. Login: flyctl auth login
+#   3. First deploy: flyctl launch --no-deploy (uses this fly.toml)
+#   4. Set secrets (API keys — never in fly.toml):
+#      flyctl secrets set ANTHROPIC_API_KEY=sk-ant-...
+#      flyctl secrets set PINECONE_API_KEY=pcsk_...
+#      flyctl secrets set MONGODB_URL=mongodb+srv://...
+#   5. Deploy: flyctl deploy
+#   6. Check status: flyctl status
+#   7. View logs: flyctl logs
+#
+# YOUR APP URL: https://marketmind-ai.fly.dev
+# ============================================================
+
+app = "marketmind-ai"
+primary_region = "sin"   # Singapore — closest to India
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true           # Redirect HTTP to HTTPS automatically
+  auto_stop_machines = true    # Scale to zero when idle (saves free tier quota)
+  auto_start_machines = true   # Wake up on first request
+  min_machines_running = 0     # Allow full scale-to-zero
+
+[[vm]]
+  size = "shared-cpu-1x"       # 1 shared vCPU, 256MB RAM — free tier
+  memory = "512mb"             # Upgrade to 512MB (still cheap, needed for sentence-transformers)
+
+[env]
+  PORT = "8000"
+  # DO NOT put secrets here — use: flyctl secrets set KEY=value

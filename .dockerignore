@@ -1,0 +1,30 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Secrets — never in the image
+.env
+
+# Large data files — already ingested into Pinecone, not needed at runtime
+data/
+
+# Dev tooling
+.git/
+.github/
+tests/
+*.md
+PROGRESS.md
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

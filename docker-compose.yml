@@ -1,0 +1,61 @@
+# ============================================================
+# MarketMind AI — docker-compose.yml
+#
+# WHAT THIS DOES:
+#   Runs the full MarketMind stack locally with one command:
+#     docker compose up
+#
+# SERVICES:
+#   api       — FastAPI backend (port 8000)
+#   ui        — Streamlit frontend (port 8501)
+#
+# HOW CONTAINERS TALK TO EACH OTHER:
+#   Docker Compose puts all services on a shared network.
+#   The UI container reaches the API at http://api:8000
+#   (using the service name "api" as the hostname, not localhost).
+#   That's why we set API_BASE=http://api:8000 for the UI service.
+#   From your browser, you still access:
+#     - API:  http://localhost:8000
+#     - UI:   http://localhost:8501
+#
+# ENV VARS:
+#   All API keys are read from your local .env file.
+#   Never hardcode secrets in docker-compose.yml — it gets committed.
+#
+# TO RUN:
+#   docker compose up --build     (first time or after code changes)
+#   docker compose up             (subsequent runs, uses cached images)
+#   docker compose down           (stop and remove containers)
+#   docker compose logs api       (view API logs)
+# ============================================================
+
+services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"        # host:container
+    env_file:
+      - .env               # loads ANTHROPIC_API_KEY, PINECONE_API_KEY, MONGODB_URL etc.
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE=http://api:8000   # "api" is the service name above — Docker resolves it
+    depends_on:
+      api:
+        condition: service_healthy  # wait for API health check to pass before starting UI
+    restart: unless-stopped
