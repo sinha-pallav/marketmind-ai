@@ -2,33 +2,32 @@
 # MarketMind AI — CI/CD Pipeline (GitHub Actions)
 #
 # WHAT THIS DOES:
-#   Every push to `main` triggers this workflow:
+#   Every push to `master` triggers this workflow:
 #   1. Runs a smoke test (imports the package, checks key modules)
-#   2. If tests pass, deploys the FastAPI app to Fly.io
+#   2. If tests pass, triggers a deploy on Render via deploy hook
 #
 # WHY CI/CD MATTERS (for interviews):
-#   CI/CD means you never manually deploy. Code merged to main
+#   CI/CD means you never manually deploy. Code merged to master
 #   automatically goes live. This is standard practice at every
 #   engineering team — "it works on my machine" is not acceptable.
 #
 # HOW TO SET UP:
-#   1. Push this repo to GitHub
-#   2. Go to Settings -> Secrets and variables -> Actions
-#   3. Add secret: FLY_API_TOKEN
-#      Get token with: flyctl auth token
+#   1. In Render dashboard: Settings -> Deploy Hook -> copy the URL
+#   2. In GitHub repo: Settings -> Secrets and variables -> Actions
+#   3. Add secret: RENDER_DEPLOY_HOOK_URL (paste the Render URL)
 #
 # JOBS:
 #   test   — Runs on every push, fast feedback
-#   deploy — Only runs after test passes, only on main branch
+#   deploy — Only runs after test passes, only on master branch
 # ============================================================
 
 name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
-    branches: [main]
+    branches: [master, main]
 
 jobs:
 
@@ -60,19 +59,14 @@ jobs:
           python -c "from marketmind.rag.pipeline import RAGPipeline; print('RAG: OK')"
 
   deploy:
-    name: Deploy to Fly.io
+    name: Deploy to Render
     runs-on: ubuntu-latest
     needs: test                    # only run if test job passes
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Trigger Render deploy
+        # Render deploy hooks are a simple HTTP POST — no CLI needed.
+        # The hook URL contains an auth token so only GitHub can trigger it.
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
