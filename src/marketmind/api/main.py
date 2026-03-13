@@ -75,6 +75,16 @@ class HealthResponse(BaseModel):
 # Endpoints
 # ---------------------------------------------------------------------------
 
+@app.get("/")
+def root():
+    return {
+        "name": "MarketMind AI",
+        "version": "0.1.0",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health", response_model=HealthResponse)
 def health():
     """
