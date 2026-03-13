@@ -69,10 +69,13 @@ class HybridRetriever:
         self._index = pinecone_index
         self._namespace = namespace
 
-        # Build BM25 index from the same corpus stored in Pinecone
-        # Tokenise by splitting on whitespace and lowercasing
-        tokenised = [doc.page_content.lower().split() for doc in chunks]
-        self._bm25 = BM25Okapi(tokenised)
+        # Build BM25 index only if corpus is available (data files may not exist on server)
+        if chunks:
+            tokenised = [doc.page_content.lower().split() for doc in chunks]
+            self._bm25 = BM25Okapi(tokenised)
+        else:
+            self._bm25 = None
+            print("  BM25 unavailable (no data files) — using vector-only search")
 
     @classmethod
     def build(cls, data_dir: Path) -> "HybridRetriever":
@@ -82,11 +85,15 @@ class HybridRetriever:
         """
         print("Building HybridRetriever...")
 
-        # Load and chunk corpus (same process as ingestion — must be identical)
+        # Load and chunk corpus for BM25 (data files may not exist in production)
         print("  Loading corpus for BM25...")
-        docs = load_all(data_dir)
-        chunks = chunk_documents(docs, chunk_size=512, chunk_overlap=50)
-        print(f"  BM25 corpus: {len(chunks)} chunks")
+        try:
+            docs = load_all(data_dir)
+            chunks = chunk_documents(docs, chunk_size=512, chunk_overlap=50)
+            print(f"  BM25 corpus: {len(chunks)} chunks")
+        except Exception as e:
+            print(f"  Data files not found ({e}) — BM25 disabled, using vector-only search")
+            chunks = []
 
         # Connect to Pinecone
         print("  Connecting to Pinecone...")
@@ -202,8 +209,11 @@ class HybridRetriever:
         candidates = top_k * 3
 
         vector_results = self._vector_search(query, candidates)
-        bm25_results = self._bm25_search(query, candidates)
-        fused = self._rrf_fusion(vector_results, bm25_results, top_k * 2)
+        if self._bm25 is not None:
+            bm25_results = self._bm25_search(query, candidates)
+            fused = self._rrf_fusion(vector_results, bm25_results, top_k * 2)
+        else:
+            fused = vector_results[:top_k * 2]
 
         # Optional: filter by document type
         if filter_type:
